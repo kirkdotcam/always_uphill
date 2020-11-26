@@ -48,7 +48,7 @@ class Strategy():
             start = datetime.now()
             models.append(arima.make_model(price))
             end = datetime.now()
-            print(f"model {modelnum} took {(end-start).total_seconds()} seconds")
+            print(f"⚡model {modelnum} took {(end-start).total_seconds()} seconds")
 
         return models
 
@@ -75,7 +75,9 @@ class Strategy():
             currency of interest must be the quote
             instead of the base in the pair
             """
-            
+            if row["prediction"] == 0:
+                return row
+
             if self.pairs[row.pair]["base"] != self.position:
                 row["last_price"] **= -1
                 row["prediction"] = 1/row["prediction"]

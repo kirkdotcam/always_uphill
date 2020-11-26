@@ -11,10 +11,15 @@ def make_model(data, order=None):
     
     if order is None:
         order=find_order(data)
-    model = ARIMA(data["close"], order=order)
-    fitmodel = model.fit()
-    return fitmodel
+    try:
+        model = ARIMA(data["close"], order=order)
+        fitmodel = model.fit()
+        return fitmodel
+    except:
+        return "nomodel"
 
 def make_forecast(model, steps=60):
+    if model == "nomodel":
+        return 0
     return model.forecast(steps=steps)[-1]
 
