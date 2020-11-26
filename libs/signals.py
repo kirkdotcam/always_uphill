@@ -11,19 +11,16 @@ def get_last_prices(prices_dict):
     df.columns=["pair","last_price"]
     return df
 
-def generate_prediction_sig(prices_dict, forecasts):
-    
-    df = get_last_prices(prices_dict)
-
-    df["prediction"] = df.pair.apply(lambda x: forecasts[x])
-    df["pred_return"] = (df.last_price-df.prediction)/df.last_price
+def generate_prediction_sig(last_prices_df):
+    df=last_prices_df
+    df["pred_return"] = (df.prediction-df.last_price)/df.last_price
     df["pred_signal"] = (df.pred_return > 0).astype(int)
     return df[["prediction","pred_return","pred_signal"]]
 
 
-def generate_sma_cross_sig(prices_dict, short=5, long=10):
+def generate_sma_cross_sig(prices_dict, last_prices_df, short=5, long=10):
 
-    df = get_last_prices(prices_dict)
+    df = last_prices_df
 
     sig_dict = {}
     for pair,prices in prices_dict.items():

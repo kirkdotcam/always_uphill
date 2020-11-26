@@ -13,7 +13,11 @@ def get_pair(pair):
     df = df.astype('float')
     return df
 
-def get_prices(neighborpositions):
-    prices =  [get_pair(pair) for pair in neighborpositions]
+def get_prices(neighbor_ids):
+    """
+        Returns:
+            dict(neighbor_id:OHLCV)
+    """
+    prices =  [get_pair(pair) for pair in neighbor_ids]
 
-    return dict(zip(neighborpositions,prices))
+    return dict(zip(neighbor_ids,prices))

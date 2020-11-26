@@ -34,35 +34,63 @@ class Strategy():
         if graph is None:
             graph = self.G
         
-        neighbors = list(graph.neighbors(position))
         neighpair = [pair for pair in self.pairs if position in pair]
         
         return [pair for pair in neighpair if ".d" not in pair]
 
     # model all neighbors
     def build_models(self, prices_list):
+        models = []
+        modelnum = 0
 
-        models = [arima.make_model(price) for price in prices_list]
+        for price in prices_list:
+            modelnum += 1
+            start = datetime.now()
+            models.append(arima.make_model(price))
+            end = datetime.now()
+            print(f"model {modelnum} took {(end-start).total_seconds()} seconds")
 
         return models
 
-    def get_forecasts(self, neighborpositions,models):
-        forecasts = [arima.make_forecast(model) for model in models]
+        # return [arima.make_model(price) for price in prices_list]
 
-        return {pair:forecast for pair,forecast in zip(neighborpositions,forecasts)}    
-
+    def get_forecasts(self, model_list):
+        """
+            Returns:
+                dict(pair_id, forecast_value)
+        """
+        return {model[0]: arima.make_forecast(model[1]) for model in model_list}
         
     # if short sma higher, flag positive
     # if predicted higher, flag positive
 
     def signal_compile(self, ohlcs, forecast):
         lastpri = signals.get_last_prices(ohlcs)
-        sma = signals.generate_sma_cross_sig(ohlcs)
-        pred = signals.generate_prediction_sig(ohlcs, forecast)
 
-        sigs = pd.concat([lastpri,sma,pred], axis="columns", join="inner")
-        sigs["sigsum"] = sigs.sma_sig + sigs.pred_signal
-        return sigs[["pair","sigsum","pred_return"]]
+        lastpri["prediction"] = lastpri.pair.apply(lambda x: forecast[x])
+        # print(lastpri.iloc[0])
+
+        def invert_base(row):
+            """ to compare apples to apples, 
+            currency of interest must be the quote
+            instead of the base in the pair
+            """
+            
+            if self.pairs[row.pair]["base"] != self.position:
+                row["last_price"] **= -1
+                row["prediction"] = 1/row["prediction"]
+                # print(row)
+            return row
+        
+        lastpri.apply(invert_base, axis="columns")
+        signals.generate_sma_cross_sig(ohlcs, lastpri)
+        signals.generate_prediction_sig(lastpri)
+
+        # sigs = pd.concat([lastpri,sma,pred], axis="columns", join="inner")
+        # sigs.to_csv("./sigs.csv")
+        lastpri["sigsum"] = lastpri.sma_sig + lastpri.pred_signal
+        lastpri.to_csv("./last_prices.csv")
+        return lastpri[["pair","sigsum","pred_return"]]
 
     
 
@@ -112,15 +140,17 @@ class Strategy():
     def execute(self):
         print("starting execution cycle")
         neighbors = self.neighborScan()
+
         ohlcs = prices.get_prices(neighbors)
-        models = None
+
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore')
             models=self.build_models(ohlcs.values())
+        
+        model_list = zip(neighbors,models)
+        forecasts = self.get_forecasts(model_list)
 
-        forecast = self.get_forecasts(neighbors,models)
-
-        sig_df = self.signal_compile(ohlcs,forecast)
+        sig_df = self.signal_compile(ohlcs,forecasts)
 
         decision = self.trade_decision(sig_df)
 

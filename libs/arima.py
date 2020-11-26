@@ -8,7 +8,6 @@ def find_order(data):
     return (result[0],1,result[1])
 
 def make_model(data, order=None):
-    print(f"starting new model")
     
     if order is None:
         order=find_order(data)
