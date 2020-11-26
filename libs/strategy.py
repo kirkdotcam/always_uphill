@@ -42,7 +42,7 @@ class Strategy():
     def build_models(self, prices_list):
         models = []
         modelnum = 0
-
+        
         for price in prices_list:
             modelnum += 1
             start = datetime.now()
@@ -80,11 +80,11 @@ class Strategy():
 
             if self.pairs[row.pair]["base"] != self.position:
                 row["last_price"] **= -1
-                row["prediction"] = 1/row["prediction"]
+                row["prediction"] **= -1
                 # print(row)
             return row
         
-        lastpri.apply(invert_base, axis="columns")
+        lastpri = lastpri.apply(invert_base, axis="columns", result_type="broadcast")
         signals.generate_sma_cross_sig(ohlcs, lastpri)
         signals.generate_prediction_sig(lastpri)
 
@@ -123,15 +123,17 @@ class Strategy():
         else:
             self.log_trade(decision)
             response = actions.trade(decision, self.size)
-            mult = response["result"][decision]["c"][0]
-            self.size = float(mult) * self.size
+
+            mult = float(response["result"][decision]["c"][0])
             
             pairdatum = self.pairs[decision]
             if pairdatum["base"]==self.position:
                 self.position = pairdatum["quote"]
             else:
                 self.position = pairdatum["base"]
+                mult **= -1
 
+            self.size = mult * self.size
             return (self.size, self.position)
             
 
@@ -145,6 +147,7 @@ class Strategy():
 
         ohlcs = prices.get_prices(neighbors)
 
+        print(f"building {len(ohlcs)} models")
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore')
             models=self.build_models(ohlcs.values())
