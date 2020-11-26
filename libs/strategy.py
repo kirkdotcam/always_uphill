@@ -5,13 +5,18 @@ import libs.signals as signals
 import libs.actions as actions
 import libs.logs as logs
 from datetime import datetime
-from tqdm import tqdm
+import time
 import networkx as nx
 import pandas as pd
 import warnings
 
 class Strategy():
-    def __init__(self, position=None, size=100, log=logs.Log()):
+    def __init__(self, 
+    position=None,
+    size=100, 
+    log=logs.Log(),
+    prediction_horizon=60,
+    cycle_time=0):
         try:
             self.pairs = k.query_public("AssetPairs")["result"]
         except:
@@ -27,6 +32,9 @@ class Strategy():
         self.G.add_edges_from(edges)
         self.log = log
         self.cycle = 0
+        self.cycle_time = cycle_time
+        self.horizon = prediction_horizon
+        
         
         
 
@@ -48,7 +56,7 @@ class Strategy():
         modelnum = 0
         self.cycle += 1
         
-        for price in tqdm(prices_list):
+        for price in prices_list:
 
             modelnum += 1
             start = datetime.now()
@@ -56,7 +64,7 @@ class Strategy():
             end = datetime.now()
 
             train_time = (end-start).total_seconds()
-            train_msg = f"⚡model {modelnum} took {train_time} seconds"
+            train_msg = f"⚡ model {modelnum} took {train_time} seconds"
             self.log.log_model(self.cycle,modelnum,train_time)
             print(train_msg)
         return models
@@ -68,7 +76,7 @@ class Strategy():
             Returns:
                 dict(pair_id, forecast_value)
         """
-        return {model[0]: arima.make_forecast(model[1]) for model in model_list}
+        return {model[0]: arima.make_forecast(model[1], self.horizon) for model in model_list}
         
     # if short sma higher, flag positive
     # if predicted higher, flag positive
