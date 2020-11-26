@@ -1,13 +1,14 @@
 from libs.strategy import Strategy
+import libs.logs as logs
 import time
 
-strat = Strategy()
-
+log_object = logs.Log()
+strat = Strategy(log=log_object)
+log_object.log_message("starting system")
 
 while True:
     result = strat.execute()
-    with open("ledger.txt","a") as file:
-        file.write(f"{result['lasttrade']},{result['newposition']},{result['newsize']}\n")
+    log_object.log_trade(result['lasttrade'],result['newposition'],result['newsize'])
     # time.sleep(10)
 
 

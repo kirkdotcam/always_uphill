@@ -3,13 +3,15 @@ import libs.arima as arima
 import libs.prices as prices
 import libs.signals as signals
 import libs.actions as actions
+import libs.logs as logs
 from datetime import datetime
+from tqdm import tqdm
 import networkx as nx
 import pandas as pd
 import warnings
 
 class Strategy():
-    def __init__(self, position=None, size=100):
+    def __init__(self, position=None, size=100, log=logs.Log()):
         try:
             self.pairs = k.query_public("AssetPairs")["result"]
         except:
@@ -23,6 +25,8 @@ class Strategy():
         self.size = size
         edges = [(pair["base"],pair["quote"]) for pair in self.pairs.values()]
         self.G.add_edges_from(edges)
+        self.log = log
+        self.cycle = 0
         
         
 
@@ -42,14 +46,19 @@ class Strategy():
     def build_models(self, prices_list):
         models = []
         modelnum = 0
+        self.cycle += 1
         
-        for price in prices_list:
+        for price in tqdm(prices_list):
+
             modelnum += 1
             start = datetime.now()
             models.append(arima.make_model(price))
             end = datetime.now()
-            print(f"⚡model {modelnum} took {(end-start).total_seconds()} seconds")
 
+            train_time = (end-start).total_seconds()
+            train_msg = f"⚡model {modelnum} took {train_time} seconds"
+            self.log.log_model(self.cycle,modelnum,train_time)
+            print(train_msg)
         return models
 
         # return [arima.make_model(price) for price in prices_list]
@@ -121,7 +130,7 @@ class Strategy():
         if decision == "wait":
             return (self.size, self.position)
         else:
-            self.log_trade(decision)
+            self.log.log_decision(decision)
             response = actions.trade(decision, self.size)
 
             mult = float(response["result"][decision]["c"][0])
@@ -136,10 +145,6 @@ class Strategy():
             self.size = mult * self.size
             return (self.size, self.position)
             
-
-    def log_trade(self,pair):
-        with open("./log.txt","a") as file:
-            file.writelines(f"{pair},{datetime.now()}\n")
 
     def execute(self):
         print("starting execution cycle")
