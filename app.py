@@ -8,7 +8,6 @@ log_object.log_message("starting system")
 
 while True:
     result = strat.execute()
-    log_object.log_trade(result['lasttrade'],result['newposition'],result['newsize'])
     time.sleep(strat.cycle_time)
 
 

@@ -120,7 +120,7 @@ class Strategy():
         entry = signals_df[signals_df["sigsum"] == 2]
         
         if entry.shape[0] == 0:
-            return "wait"
+            return "HOLD"
 
         
         high = entry.sort_values("pred_return").iloc[0]
@@ -129,20 +129,20 @@ class Strategy():
             print(f"waiting on {high.pair} with predicted value of {high.pred_return} in {self.horizon} minutes")
             self.horizon += self.horizon_growth
             print(f"increasing horizon by {self.horizon_growth} minutes")
-            return "wait"
+            self.log.log_decision("HOLD",high.pair,high.pred_return, self.horizon)
+            return "HOLD"
         else:
             print(f"buying {high.pair} with predicted value of {high.pred_return} in {self.horizon} minutes")
-            self.log.log_decision(high.pair,high.pred_return)
+            self.log.log_decision("TRADE",high.pair,high.pred_return, self.horizon)
             return high.pair
  
 
-    def trade_action(self, decision="wait"):
-        if decision == "wait":
+    def trade_action(self, decision="HOLD"):
+        if decision == "HOLD":
             return (self.size, self.position)
         else:
 
             response = actions.trade(decision, self.size)
-            self.log.log_action(decision)
 
             mult = float(response["result"][decision]["c"][0])
             
@@ -176,7 +176,8 @@ class Strategy():
         decision = self.trade_decision(sig_df, forecasts)
 
         result = self.trade_action(decision)
-        
+
+        self.log.log_trade(decision, result[1], result[0])
         return {
             "lasttrade":decision,
             "newposition":result[1],
