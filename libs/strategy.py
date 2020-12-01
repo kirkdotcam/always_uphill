@@ -164,7 +164,7 @@ class Strategy():
         print("starting execution cycle")
         neighbors = self.neighborScan()
 
-        ohlcs = prices.get_prices(neighbors, logger)
+        ohlcs = prices.get_prices(neighbors, self.log)
 
         print(f"building {len(ohlcs)} models")
         with warnings.catch_warnings():
