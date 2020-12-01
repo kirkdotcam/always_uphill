@@ -16,6 +16,7 @@ class Strategy():
     size=100, 
     log=logs.Log(),
     prediction_horizon=60,
+    horizon_growth = 1,
     cycle_time=0):
         try:
             self.pairs = k.query_public("AssetPairs")["result"]
@@ -34,6 +35,8 @@ class Strategy():
         self.cycle = 0
         self.cycle_time = cycle_time
         self.horizon = prediction_horizon
+        
+        self.horizon_growth = horizon_growth if horizon_growth <=60 else 60
         
         
         
@@ -85,7 +88,6 @@ class Strategy():
         lastpri = signals.get_last_prices(ohlcs)
 
         lastpri["prediction"] = lastpri.pair.apply(lambda x: forecast[x])
-        # print(lastpri.iloc[0])
 
         def invert_base(row):
             """ to compare apples to apples, 
@@ -98,15 +100,12 @@ class Strategy():
             if self.pairs[row.pair]["base"] != self.position:
                 row["last_price"] **= -1
                 row["prediction"] **= -1
-                # print(row)
             return row
         
         lastpri = lastpri.apply(invert_base, axis="columns", result_type="broadcast")
         signals.generate_sma_cross_sig(ohlcs, lastpri)
         signals.generate_prediction_sig(lastpri)
 
-        # sigs = pd.concat([lastpri,sma,pred], axis="columns", join="inner")
-        # sigs.to_csv("./sigs.csv")
         lastpri["sigsum"] = lastpri.sma_sig + lastpri.pred_signal
         lastpri.to_csv("./last_prices.csv")
         return lastpri[["pair","sigsum","pred_return"]]
@@ -116,7 +115,7 @@ class Strategy():
     # if both positive, ready to trade
     # if multiple ready to trade, take highest projected return
     # else, wait 10 mins and try again
-    def trade_decision(self, signals_df):
+    def trade_decision(self, signals_df, forecasts):
 
         entry = signals_df[signals_df["sigsum"] == 2]
         
@@ -125,21 +124,25 @@ class Strategy():
 
         
         high = entry.sort_values("pred_return").iloc[0]
-        if high.pred_return < 0:
+        # check if trade is larger than fees (use static fee val for now)
+        if high.pred_return < 0.26:
+            print(f"waiting on {high.pair} with predicted value of {high.pred_return} in {self.horizon} minutes")
+            self.horizon += self.horizon_growth
+            print(f"increasing horizon by {self.horizon_growth} minutes")
             return "wait"
         else:
-            print(f"buying {high.pair}")
+            print(f"buying {high.pair} with predicted value of {high.pred_return} in {self.horizon} minutes")
+            self.log.log_decision(high.pair,high.pred_return)
             return high.pair
-
-
-        
+ 
 
     def trade_action(self, decision="wait"):
         if decision == "wait":
             return (self.size, self.position)
         else:
-            self.log.log_decision(decision)
+
             response = actions.trade(decision, self.size)
+            self.log.log_action(decision)
 
             mult = float(response["result"][decision]["c"][0])
             
@@ -170,7 +173,7 @@ class Strategy():
 
         sig_df = self.signal_compile(ohlcs,forecasts)
 
-        decision = self.trade_decision(sig_df)
+        decision = self.trade_decision(sig_df, forecasts)
 
         result = self.trade_action(decision)
         
