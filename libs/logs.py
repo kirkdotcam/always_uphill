@@ -5,7 +5,7 @@ class Log():
     def __init__(self, file="./logs.txt"):
         self.filepath = Path(file)
         self.logfile = open(self.filepath,"a", 1)
-        self.allowed_action = ["TRADE", "DECISION","MODEL", "GENERAL"]
+        self.allowed_action = ["TRADE", "DECISION","MODEL", "FAULT", "GENERAL"]
         
     def message(self, action, contents):
         if action not in self.allowed_action:
@@ -24,6 +24,9 @@ class Log():
     def log_model(self, cycle, model_num, train_time):
         self.message("MODEL",[cycle,model_num, train_time])
 
+    def log_fault(self, fault_type, message):
+        self.message("FAULT",[fault_type,message])
+        
     def log_message(self,text):
         self.message("GENERAL", [text])
         

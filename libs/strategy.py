@@ -34,7 +34,8 @@ class Strategy():
         self.log = log
         self.cycle = 0
         self.cycle_time = cycle_time
-        self.horizon = prediction_horizon
+        self._horizon = prediction_horizon #static value to reset to
+        self.horizon = self._horizon
         
         self.horizon_growth = horizon_growth if horizon_growth <=60 else 60
         
@@ -103,7 +104,7 @@ class Strategy():
             return row
         
         lastpri = lastpri.apply(invert_base, axis="columns", result_type="broadcast")
-        signals.generate_sma_cross_sig(ohlcs, lastpri)
+        signals.generate_ewma_cross_sig(ohlcs, lastpri)
         signals.generate_prediction_sig(lastpri)
 
         lastpri["sigsum"] = lastpri.sma_sig + lastpri.pred_signal
@@ -154,6 +155,8 @@ class Strategy():
                 mult **= -1
 
             self.size = mult * self.size
+
+            self.horizon = self._horizon #reset back to base value
             return (self.size, self.position)
             
 
@@ -161,7 +164,7 @@ class Strategy():
         print("starting execution cycle")
         neighbors = self.neighborScan()
 
-        ohlcs = prices.get_prices(neighbors)
+        ohlcs = prices.get_prices(neighbors, logger)
 
         print(f"building {len(ohlcs)} models")
         with warnings.catch_warnings():
@@ -178,6 +181,7 @@ class Strategy():
         result = self.trade_action(decision)
 
         self.log.log_trade(decision, result[1], result[0])
+
         return {
             "lasttrade":decision,
             "newposition":result[1],

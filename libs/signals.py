@@ -18,15 +18,14 @@ def generate_prediction_sig(last_prices_df):
     return df[["prediction","pred_return","pred_signal"]]
 
 
-def generate_sma_cross_sig(prices_dict, last_prices_df, short=5, long=10):
+def generate_ewma_cross_sig(prices_dict, last_prices_df, short=5, long=10):
 
     df = last_prices_df
 
     sig_dict = {}
     for pair,prices in prices_dict.items():
-        # prices = prices.iloc[long+1:]
-        prices["sma_short"] = prices.close.rolling(window=short).mean()
-        prices["sma_long"] = prices.close.rolling(window=long).mean()
+        prices["sma_short"] = prices.close.ewm(halflife=short).mean()
+        prices["sma_long"] = prices.close.ewm(halflife=long).mean()
         prices["signal"] =(prices.sma_short > prices.sma_long).astype(int)
         sig_dict[pair] = prices.signal.iloc[-1]
     
